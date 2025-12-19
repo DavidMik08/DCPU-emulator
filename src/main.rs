@@ -83,6 +83,46 @@ fn get_inst(pc: &mut u32, ram: &mut Vec<u8>) -> Vec<u8> {
     inst
 }
 
+fn add(in1: u8, in2: u8, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
+    let result: u16 = (in1 + in2).into();
+    
+    if result > 255 {
+        *carry_flag = true;
+    } else {
+        *carry_flag = false;
+    }
+    
+    let result: u8 = result as u8;
+
+    if result == 0 {
+        *zero_flag = true;
+    } else {
+        *zero_flag = false;
+    }
+
+    result
+}
+
+fn sub(in1: u8, in2: u8, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
+    let result: u16 = (in1 - in2).into();
+
+    if result > 255 {
+        *carry_flag = true;
+    } else {
+        *carry_flag = false;
+    }
+
+    let result: u8 = result as u8;
+
+    if result == 0 {
+        *zero_flag = true;
+    } else {
+        *zero_flag = false;
+    }
+
+    result
+}
+
 
 fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: &mut Vec<u8>, pc: &mut u32, sp: &mut u8, zero_flag: &mut bool, carry_flag: &mut bool) -> bool {
     *inst = get_inst(&mut *pc, &mut *ram);
@@ -104,7 +144,7 @@ fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: 
             _ => todo!(),
         }
     }
-    let mut out: *mut u8;
+    let out: *mut u8;
     let mut reg0: u8 = 0;
 
     match inst[3] {
@@ -119,12 +159,18 @@ fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: 
         7 => out = &mut stk[{*sp += 1; *sp as usize}],
         _ => todo!(),
     }
-
-    /*match inst[0]&63 {
-        0 => out = add(inst[1], inst[2], &mut carry_flag, &mut zero_flag),
-        _ => todo!(),
-    }*/
-    true
+    
+    unsafe {
+        match inst[0]&63 {
+            0  => *out = add(inst[1], inst[2], carry_flag, zero_flag),
+            1  => *out = sub(inst[1], inst[2], carry_flag, zero_flag),
+            63 => return true,
+            _ => todo!(),
+        }
+    }
+    *pc += 4;
+    dbg!(*pc);
+    false
 }
 
 
@@ -160,7 +206,8 @@ fn main() -> io::Result<()> {
         if i + 1 < program.len() {
             let first_char = program[i + 1];
             let second_char = program[i];
-            ram[i-6] = hex_to_dec(first_char, second_char);
+            ram[i/2-3] = hex_to_dec(first_char, second_char);
+            println!("RAM: {}: {}", i/2-3, ram[i/2-3]);
         }
     }
 
