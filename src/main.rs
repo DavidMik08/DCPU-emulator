@@ -53,6 +53,7 @@ fn get_program<R>(reader: io::BufReader<R>) -> Vec<char> where R: std::io::Read 
                 // Convert byte to char (ASCII only)
                 let c: char = byte as char;
                 program.push(c);
+                println!("READ: {c}");
             }
             Err(e) => {
                 eprintln!("Error reading byte: {}", e);
@@ -83,53 +84,220 @@ fn get_inst(pc: &mut u32, ram: &mut Vec<u8>) -> Vec<u8> {
     inst
 }
 
-fn add(in1: u8, in2: u8, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
-    let result: u16 = (in1 + in2).into();
+fn add_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
+    let mut result: u16 = (in1 + in2).into();
     
-    if result > 255 {
-        *carry_flag = true;
-    } else {
-        *carry_flag = false;
+    if *shift_right {
+        result /= 2;
+    }
+
+    if !*ignore_flags {
+        if result > 255 {
+            *carry_flag = true;
+        } else {
+            *carry_flag = false;
+        }
     }
     
     let result: u8 = result as u8;
 
-    if result == 0 {
-        *zero_flag = true;
-    } else {
-        *zero_flag = false;
+    if !*ignore_flags {
+        if result == 0 {
+            *zero_flag = true;
+        } else {
+            *zero_flag = false;
+        }
     }
+
+    println!("ADDED {in1} and {in2}, got {result}");
 
     result
 }
 
-fn sub(in1: u8, in2: u8, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
-    let result: u16 = (in1 - in2).into();
+fn sub_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
+    let mut result: u8 = in1 - in2;
+    
+    if *shift_right {
+        result /= 2;
+    }
 
-    if result > 255 {
+    if !*ignore_flags {
+        if in1 > in2 {
+            *carry_flag = true;
+        } else {
+            *carry_flag = false;
+        }
+    }
+
+    if !*ignore_flags {
+        if result == 0 {
+            *zero_flag = true;
+        } else {
+            *zero_flag = false;
+        }
+    }
+
+    println!("SUBTRACTED {in1} and {in2}, got {result}");
+
+    result
+}
+
+fn or_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
+    let mut result: u8 = in1 | in2;
+    
+    if *shift_right {
+        result /= 2;
+    }
+
+    if !*ignore_flags {
+        *carry_flag = false; 
+    }
+
+    if !*ignore_flags {
+        if result == 0 {
+            *zero_flag = true;
+        } else {
+            *zero_flag = false;
+        }
+    }
+
+    println!("OR {in1} and {in2}, got {result}");
+
+    result
+}
+
+fn nor_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
+    let mut result: u8 = !(in1 | in2);
+    
+    if *shift_right {
+        result /= 2;
+    }
+
+    if !*ignore_flags {
         *carry_flag = true;
-    } else {
-        *carry_flag = false;
+    }
+    
+    if !*ignore_flags {
+        if result == 0 {
+            *zero_flag = true;
+        } else {
+            *zero_flag = false;
+        }
     }
 
-    let result: u8 = result as u8;
-
-    if result == 0 {
-        *zero_flag = true;
-    } else {
-        *zero_flag = false;
-    }
+    println!("NOR {in1} and {in2}, got {result}");
 
     result
 }
+
+fn and_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
+    let mut result: u8 = in1 & in2;
+    
+    if *shift_right {
+        result /= 2;
+    }
+
+    if !*ignore_flags {
+        *carry_flag = true;
+    }
+
+    if !*ignore_flags {
+        if result == 0 {
+            *zero_flag = true;
+        } else {
+            *zero_flag = false;
+        }
+    }
+
+    println!("AND {in1} and {in2}, got {result}");
+
+    result
+}
+
+fn nand_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
+    let mut result: u8 = !(in1 & in2);
+    
+    if *shift_right {
+        result /= 2;
+    }
+
+    if !*ignore_flags {
+        *carry_flag = true;
+    }
+
+    if !*ignore_flags {
+        if result == 0 {
+            *zero_flag = true;
+        } else {
+            *zero_flag = false;
+        }
+    }
+
+    println!("NAND {in1} and {in2}, got {result}");
+
+    result
+}
+
+fn xor_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
+    let mut result: u8 = in1 ^ in2;
+    
+    if *shift_right {
+        result /= 2;
+    }
+
+    if !*ignore_flags {
+        *carry_flag = true;
+    }
+
+    if !*ignore_flags {
+        if result == 0 {
+            *zero_flag = true;
+        } else {
+            *zero_flag = false;
+        }
+    }
+
+    println!("XOR {in1} and {in2}, got {result}");
+
+    result
+}
+
+fn xnor_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
+    let mut result: u8 = !(in1 ^ in2);
+    
+    if *shift_right {
+        result /= 2;
+    }
+
+    if !*ignore_flags {
+        *carry_flag = true;
+    }
+
+    if !*ignore_flags {
+        if result == 0 {
+            *zero_flag = true;
+        } else {
+            *zero_flag = false;
+        }
+    }
+
+    println!("XNOR {in1} and {in2}, got {result}");
+
+    result
+}
+
+
 
 
 fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: &mut Vec<u8>, pc: &mut u32, sp: &mut u8, zero_flag: &mut bool, carry_flag: &mut bool) -> bool {
     *inst = get_inst(&mut *pc, &mut *ram);
-    let addr: u32 = (registers[2] as u32) + (registers[3] as u32) * 256 + (registers[4] as u32) * 65536;
-    for i in &mut *inst {
-        println!("Instruction part {}", i);
+    if *pc > 20 {
+        return true;
     }
+    for i in 0..4 {
+        println!("{}", inst[i]);
+    }
+    let addr: u32 = (registers[2] as u32) + (registers[3] as u32) * 256 + (registers[4] as u32) * 65536;
     if inst[0] & 128 != 128 {
         match inst[1] {
             0 => inst[1] = 0,
@@ -160,16 +328,31 @@ fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: 
         _ => todo!(),
     }
     
+    let mut ignore_flags: bool = false;
+    let mut shift_right: bool = false;
+    if inst[0] & 32 == 32 {
+        ignore_flags = true;
+    }
+    if inst[0] & 16 == 16 {
+        shift_right = true;
+    }
+
     unsafe {
-        match inst[0]&63 {
-            0  => *out = add(inst[1], inst[2], carry_flag, zero_flag),
-            1  => *out = sub(inst[1], inst[2], carry_flag, zero_flag),
-            63 => return true,
+        match inst[0] & 15 {
+            0  => *out = add_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            1  => *out = sub_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            2  => *out = or_inst(  inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            3  => *out = nor_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            4  => *out = and_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            5  => *out = nand_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            6  => *out = xor_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            7  => *out = xnor_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            15 => return true,
             _ => todo!(),
         }
     }
     *pc += 4;
-    dbg!(*pc);
+    //dbg!(*pc);
     false
 }
 
@@ -201,19 +384,19 @@ fn main() -> io::Result<()> {
     let mut carry_flag: bool = false;
 
     let len: u32 = get_len(program.clone());
-    for i in (6..program.len()).step_by(2) {
-        // Ensure we don't go out of bounds
-        if i + 1 < program.len() {
-            let first_char = program[i + 1];
-            let second_char = program[i];
-            ram[i/2-3] = hex_to_dec(first_char, second_char);
-            println!("RAM: {}: {}", i/2-3, ram[i/2-3]);
-        }
+    for i in (6..(len+6)).step_by(2) {
+        
+        let first_char = program[(i + 1) as usize];
+        let second_char = program[i as usize];
+        ram[(i/2 - 3) as usize] = hex_to_dec(first_char, second_char);
+        println!("{}", ram[(i/2-3) as usize]);
     }
 
     loop {
         if emulate(&mut registers, &mut ram, &mut stk, &mut inst, &mut pc, &mut sp, &mut zero_flag, &mut carry_flag) {
-            break Ok(());
+            break;
         }
     }
+    println!("EXITED SUCCESSFULLY");
+    Ok(())
 }
