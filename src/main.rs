@@ -98,7 +98,7 @@ fn add_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, c
             *carry_flag = false;
         }
     }
-    
+    result &= 255; 
     let result: u8 = result as u8;
 
     if !*ignore_flags {
@@ -115,11 +115,20 @@ fn add_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, c
 }
 
 fn sub_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
-    let mut result: u8 = in1 - in2;
+    let mut result: i16 = in1 as i16 - in2 as i16;
     
+    if result < 0 {
+        result *= -1;
+        result &= 255;
+        result = 255 - result;
+        result += 1;
+    }
+
     if *shift_right {
         result /= 2;
     }
+
+    let result: u8 = result as u8;
 
     if !*ignore_flags {
         if in1 > in2 {
@@ -286,12 +295,52 @@ fn xnor_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, 
     result
 }
 
+fn biz(pc: &mut u32, zero_flag: &mut bool, addr: u32) -> bool {
+    if *zero_flag {
+        *pc = addr;
+        println!("BRANCHED ON ZERO TO: {addr}");
+
+        return true;
+    }
+    false
+}
+
+fn bnz(pc: &mut u32, zero_flag: &mut bool, addr: u32) -> bool {
+    if !*zero_flag {
+        *pc = addr;
+        println!("BRANCHED ON NOT ZERO TO: {addr}");
+
+        return true;
+    }
+    false
+}
+
+fn bic(pc: &mut u32, carry_flag: &mut bool, addr: u32) -> bool {
+    if *carry_flag {
+        *pc = addr;
+        println!("BRANCHED ON CARRY TO: {addr}");
+
+        return true;
+    }
+    false
+}
+
+fn bnc(pc: &mut u32, carry_flag: &mut bool, addr: u32) -> bool {
+    if !*carry_flag {
+        *pc = addr;
+        println!("BRANCHED ON NOT CARRY TO: {addr}");
+
+        return true;
+    }
+    false
+}
 
 
 
 fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: &mut Vec<u8>, pc: &mut u32, sp: &mut u8, zero_flag: &mut bool, carry_flag: &mut bool) -> bool {
     *inst = get_inst(&mut *pc, &mut *ram);
-    if *pc > 20 {
+    println!("PC: {}", *pc);
+    if *pc > 100 {
         return true;
     }
     for i in 0..4 {
@@ -312,6 +361,21 @@ fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: 
             _ => todo!(),
         }
     }
+    if inst[0] & 64 !=  64{
+        match inst[2] {
+            0 => inst[2] = 0,
+            1 => inst[2] = registers[0],
+            2 => inst[2] = registers[1],
+            3 => inst[2] = registers[2],
+            4 => inst[2] = registers[3],
+            5 => inst[2] = registers[4],
+
+            6 => inst[2] = ram[addr as usize],
+            7 => inst[2] = stk[{let tmp = *sp; *sp -= 1; tmp as usize}],
+            _ => todo!(),
+        }
+    }
+
     let out: *mut u8;
     let mut reg0: u8 = 0;
 
@@ -336,7 +400,7 @@ fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: 
     if inst[0] & 16 == 16 {
         shift_right = true;
     }
-
+    let mut branched: bool = false;
     unsafe {
         match inst[0] & 15 {
             0  => *out = add_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
@@ -347,11 +411,30 @@ fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: 
             5  => *out = nand_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
             6  => *out = xor_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
             7  => *out = xnor_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            8  => {
+                branched = biz(pc, zero_flag, addr);
+                *out = add_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
+            }
+            9  => {
+                branched = bnz(pc, zero_flag, addr);
+                *out = add_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
+            }
+            10  => {
+                branched = bic(pc, carry_flag, addr);
+                *out = add_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
+            }
+            11  => {
+                branched = bnc(pc, carry_flag, addr);
+                *out = add_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
+            }
+
             15 => return true,
             _ => todo!(),
         }
     }
+    if !branched {
     *pc += 4;
+    }
     //dbg!(*pc);
     false
 }
@@ -383,13 +466,12 @@ fn main() -> io::Result<()> {
     let mut zero_flag: bool = false;
     let mut carry_flag: bool = false;
 
-    let len: u32 = get_len(program.clone());
+    let len: u32 = get_len(program.clone())*2;
     for i in (6..(len+6)).step_by(2) {
         
         let first_char = program[(i + 1) as usize];
         let second_char = program[i as usize];
         ram[(i/2 - 3) as usize] = hex_to_dec(first_char, second_char);
-        println!("{}", ram[(i/2-3) as usize]);
     }
 
     loop {
