@@ -85,7 +85,7 @@ fn get_inst(pc: &mut u32, ram: &mut Vec<u8>) -> Vec<u8> {
 }
 
 fn add_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
-    let mut result: u16 = (in1 + in2).into();
+    let mut result: u16 = in1 as u16 + in2 as u16;
     
     if *shift_right {
         result /= 2;
@@ -98,8 +98,8 @@ fn add_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, c
             *carry_flag = false;
         }
     }
-    result &= 255; 
-    let result: u8 = result as u8;
+    
+    let result: u8 = (result & 255) as u8;
 
     if !*ignore_flags {
         if result == 0 {
@@ -391,7 +391,7 @@ fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: 
         7 => out = &mut stk[{*sp += 1; *sp as usize}],
         _ => todo!(),
     }
-    
+    println!("INPUTS ARE: {} AND {}!!!", inst[1], inst[2]);
     let mut ignore_flags: bool = false;
     let mut shift_right: bool = false;
     if inst[0] & 32 == 32 {
