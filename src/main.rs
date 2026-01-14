@@ -337,12 +337,9 @@ fn bnc(pc: &mut u32, carry_flag: &mut bool, addr: u32) -> bool {
 
 
 
-fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: &mut Vec<u8>, pc: &mut u32, sp: &mut u8, zero_flag: &mut bool, carry_flag: &mut bool) -> bool {
+fn emulate(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>, output_ports: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: &mut Vec<u8>, pc: &mut u32, sp: &mut u8, zero_flag: &mut bool, carry_flag: &mut bool) -> bool {
     *inst = get_inst(&mut *pc, &mut *ram);
     println!("PC: {}", *pc);
-    if *pc > 100 {
-        return true;
-    }
     for i in 0..4 {
         println!("{}", inst[i]);
     }
@@ -358,6 +355,10 @@ fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: 
 
             6 => inst[1] = ram[addr as usize],
             7 => inst[1] = stk[{let tmp = *sp; *sp -= 1; tmp as usize}],
+            8 => inst[1] = input_ports[0],
+            9 => inst[1] = input_ports[1],
+            10 => inst[1] = input_ports[2],
+            11 => inst[1] = input_ports[3],
             _ => todo!(),
         }
     }
@@ -372,6 +373,10 @@ fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: 
 
             6 => inst[2] = ram[addr as usize],
             7 => inst[2] = stk[{let tmp = *sp; *sp -= 1; tmp as usize}],
+            8 => inst[2] = input_ports[0],
+            9 => inst[2] = input_ports[1],
+            10 => inst[2] = input_ports[2],
+            11 => inst[2] = input_ports[3],
             _ => todo!(),
         }
     }
@@ -389,6 +394,10 @@ fn emulate(registers: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: 
 
         6 => out = &mut ram[addr as usize],
         7 => out = &mut stk[{*sp += 1; *sp as usize}],
+        8 => out = &mut output_ports[0],
+        9 => out = &mut output_ports[1],
+        10 => out = &mut output_ports[2],
+        11 => out = &mut output_ports[3],
         _ => todo!(),
     }
     println!("INPUTS ARE: {} AND {}!!!", inst[1], inst[2]);
@@ -458,6 +467,8 @@ fn main() -> io::Result<()> {
     let program: Vec<char> = get_program(io::BufReader::new(file));
     
     let mut registers: Vec<u8> = vec![0; 5];
+    let mut input_ports: Vec<u8> = vec![0; 4];
+    let mut output_ports: Vec<u8> = vec![0; 4];
     let mut ram: Vec<u8> = vec![0; 16777216];
     let mut stk: Vec<u8> = vec![0; 256];
     let mut inst: Vec<u8> = vec![0; 4];
@@ -475,7 +486,7 @@ fn main() -> io::Result<()> {
     }
 
     loop {
-        if emulate(&mut registers, &mut ram, &mut stk, &mut inst, &mut pc, &mut sp, &mut zero_flag, &mut carry_flag) {
+        if emulate(&mut registers, &mut input_ports, &mut output_ports, &mut ram, &mut stk, &mut inst, &mut pc, &mut sp, &mut zero_flag, &mut carry_flag) {
             break;
         }
     }
