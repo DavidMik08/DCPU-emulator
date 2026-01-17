@@ -272,7 +272,7 @@ fn xor_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, c
 }
 
 fn xnor_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
-    let mut result: u8 = !(in1 ^ in2);
+let mut result: u8 = !(in1 ^ in2);
     
     if *shift_right {
         result /= 2;
@@ -295,6 +295,53 @@ fn xnor_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, 
     result
 }
 
+fn impl_inst (in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
+    let mut result: u8 = in1 & !in2;
+
+    if *shift_right {
+        result /= 2;
+    }
+
+    if !*ignore_flags {
+        *carry_flag = false;
+    }
+    
+    if !*ignore_flags {
+        if result == 0 {
+            *zero_flag = true;
+        } else {
+            *zero_flag = false;
+        }
+    }
+    
+    println!("IMPL {in1} and {in2}, got {result}");
+
+    result
+}
+
+fn nimpl_inst (in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, carry_flag: &mut bool, zero_flag: &mut bool) -> u8 {
+    let mut result: u8 = !(in1 & !in2);
+
+    if *shift_right {
+        result /= 2;
+    }
+
+    if !*ignore_flags {
+        *carry_flag = true;
+    }
+    
+    if !*ignore_flags {
+        if result == 0 {
+            *zero_flag = true;
+        } else {
+            *zero_flag = false;
+        }
+    }
+    
+    println!("NIMPL {in1} and {in2}, got {result}");
+
+    result
+}
 fn biz(pc: &mut u32, zero_flag: &mut bool, addr: u32) -> bool {
     if *zero_flag {
         *pc = addr;
@@ -412,27 +459,29 @@ fn emulate(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>, output_ports: &mu
     let mut branched: bool = false;
     unsafe {
         match inst[0] & 15 {
-            0  => *out = add_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
-            1  => *out = sub_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
-            2  => *out = or_inst(  inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
-            3  => *out = nor_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
-            4  => *out = and_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
-            5  => *out = nand_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
-            6  => *out = xor_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
-            7  => *out = xnor_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
-            8  => {
+            0  => *out = add_inst(  inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            1  => *out = sub_inst(  inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            2  => *out = or_inst(   inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            3  => *out = nor_inst(  inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            4  => *out = and_inst(  inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            5  => *out = nand_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            6  => *out = xor_inst(  inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            7  => *out = xnor_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            8  => *out = impl_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            9  => *out = nimpl_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            11 => {
                 branched = biz(pc, zero_flag, addr);
                 *out = add_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
             }
-            9  => {
+            12 => {
                 branched = bnz(pc, zero_flag, addr);
                 *out = add_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
             }
-            10  => {
+            13 => {
                 branched = bic(pc, carry_flag, addr);
                 *out = add_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
             }
-            11  => {
+            14 => {
                 branched = bnc(pc, carry_flag, addr);
                 *out = add_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
             }
