@@ -469,6 +469,10 @@ fn emulate(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>, output_ports: &mu
             7  => *out = xnor_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
             8  => *out = impl_inst( inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
             9  => *out = nimpl_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
+            10 => {
+                branched = true;
+                *out = and_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
+            }
             11 => {
                 branched = biz(pc, zero_flag, addr);
                 *out = add_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
