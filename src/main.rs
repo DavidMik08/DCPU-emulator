@@ -1,7 +1,6 @@
 use std::env;
 use std::fs::File;
-use std::io;
-use std::io::{Read, Error};
+use std::io::{self, Read, Error, BufReader, Write, Seek};
 
 
 
@@ -53,10 +52,10 @@ fn get_program<R>(reader: io::BufReader<R>) -> Vec<char> where R: std::io::Read 
                 // Convert byte to char (ASCII only)
                 let c: char = byte as char;
                 program.push(c);
-                println!("READ: {c}");
+                println!("[INFO] Read: {c}");
             }
             Err(e) => {
-                eprintln!("Error reading byte: {}", e);
+                eprintln!("[ERROR] Reading byte: {e}");
                 break;
             }
         }
@@ -71,7 +70,7 @@ fn get_len(program: Vec<char>) -> u32 {
         let byte: u8 = hex_to_dec(program[i+1], program[i]);
         len+=byte as u32 * i32::pow(16, 2-(i as u32)/2) as u32;
     }
-    dbg!(len);
+    println!("[INFO] The lenght of the program in bytes is: {len}");
     len
 }
 
@@ -109,7 +108,7 @@ fn add_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, c
         }
     }
 
-    println!("ADDED {in1} and {in2}, got {result}");
+    println!("[INFO] Added {in1} and {in2}, got {result}");
 
     result
 }
@@ -146,7 +145,7 @@ fn sub_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, c
         }
     }
 
-    println!("SUBTRACTED {in1} and {in2}, got {result}");
+    println!("[INFO] Subtracted {in1} and {in2}, got {result}");
 
     result
 }
@@ -170,7 +169,7 @@ fn or_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, ca
         }
     }
 
-    println!("OR {in1} and {in2}, got {result}");
+    println!("[INFO] Or {in1} and {in2}, got {result}");
 
     result
 }
@@ -189,12 +188,12 @@ fn nor_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, c
     if !*ignore_flags {
         if result == 0 {
             *zero_flag = true;
-        } else {
+        } else { 
             *zero_flag = false;
         }
     }
 
-    println!("NOR {in1} and {in2}, got {result}");
+    println!("[INFO] Nor {in1} and {in2}, got {result}");
 
     result
 }
@@ -218,7 +217,7 @@ fn and_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, c
         }
     }
 
-    println!("AND {in1} and {in2}, got {result}");
+    println!("[INFO] And {in1} and {in2}, got {result}");
 
     result
 }
@@ -242,7 +241,7 @@ fn nand_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, 
         }
     }
 
-    println!("NAND {in1} and {in2}, got {result}");
+    println!("[INFO] Nand {in1} and {in2}, got {result}");
 
     result
 }
@@ -266,7 +265,7 @@ fn xor_inst(in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool, c
         }
     }
 
-    println!("XOR {in1} and {in2}, got {result}");
+    println!("[INFO] Xor {in1} and {in2}, got {result}");
 
     result
 }
@@ -290,7 +289,7 @@ let mut result: u8 = !(in1 ^ in2);
         }
     }
 
-    println!("XNOR {in1} and {in2}, got {result}");
+    println!("[INFO] Xnor {in1} and {in2}, got {result}");
 
     result
 }
@@ -314,7 +313,7 @@ fn impl_inst (in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool,
         }
     }
     
-    println!("IMPL {in1} and {in2}, got {result}");
+    println!("[INFO] Impl {in1} and {in2}, got {result}");
 
     result
 }
@@ -338,14 +337,14 @@ fn nimpl_inst (in1: u8, in2: u8, ignore_flags: &mut bool, shift_right: &mut bool
         }
     }
     
-    println!("NIMPL {in1} and {in2}, got {result}");
+    println!("[INFO] Nimpl {in1} and {in2}, got {result}");
 
     result
 }
 fn biz(pc: &mut u32, zero_flag: &mut bool, addr: u32) -> bool {
     if *zero_flag {
         *pc = addr;
-        println!("BRANCHED ON ZERO TO: {addr}");
+        println!("[INFO] Branched on zero to: {addr}");
 
         return true;
     }
@@ -355,7 +354,7 @@ fn biz(pc: &mut u32, zero_flag: &mut bool, addr: u32) -> bool {
 fn bnz(pc: &mut u32, zero_flag: &mut bool, addr: u32) -> bool {
     if !*zero_flag {
         *pc = addr;
-        println!("BRANCHED ON NOT ZERO TO: {addr}");
+        println!("[INFO] Branched on not zero to: {addr}");
 
         return true;
     }
@@ -365,7 +364,7 @@ fn bnz(pc: &mut u32, zero_flag: &mut bool, addr: u32) -> bool {
 fn bic(pc: &mut u32, carry_flag: &mut bool, addr: u32) -> bool {
     if *carry_flag {
         *pc = addr;
-        println!("BRANCHED ON CARRY TO: {addr}");
+        println!("[INFO] Branched on carry to: {addr}");
 
         return true;
     }
@@ -375,7 +374,7 @@ fn bic(pc: &mut u32, carry_flag: &mut bool, addr: u32) -> bool {
 fn bnc(pc: &mut u32, carry_flag: &mut bool, addr: u32) -> bool {
     if !*carry_flag {
         *pc = addr;
-        println!("BRANCHED ON NOT CARRY TO: {addr}");
+        println!("[INFO] Branched on not carry to: {addr}");
 
         return true;
     }
@@ -384,11 +383,23 @@ fn bnc(pc: &mut u32, carry_flag: &mut bool, addr: u32) -> bool {
 
 
 
-fn emulate(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>, output_ports: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: &mut Vec<u8>, pc: &mut u32, sp: &mut u8, zero_flag: &mut bool, carry_flag: &mut bool) -> bool {
+fn emulate<R: std::io::Read>(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>, output_ports: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: &mut Vec<u8>, pc: &mut u32, sp: &mut u8, zero_flag: &mut bool, carry_flag: &mut bool, input_reader: BufReader<R>, output_port_file: &mut File, port_clk_file: &mut File) -> io::Result<bool> {
+    println!("");
+    // Set clock to 00 at start of instruction
+    port_clk_file.seek(io::SeekFrom::Start(0))?;
+    port_clk_file.write_all(b"00")?;
+    port_clk_file.flush()?;
+
     *inst = get_inst(&mut *pc, &mut *ram);
-    println!("PC: {}", *pc);
+    
+    let input_port_data: Vec<char> = get_inputs(input_reader);
+    
+    for i in (0..8).step_by(2) {
+        input_ports[i/2] = hex_to_dec(input_port_data[i+1], input_port_data[i]);
+    }
+    println!("[INFO] Program counter: {}", *pc);
     for i in 0..4 {
-        println!("{}", inst[i]);
+        println!("[INFO] {}", inst[i]);
     }
     let addr: u32 = (registers[2] as u32) + (registers[3] as u32) * 256 + (registers[4] as u32) * 65536;
     if inst[0] & 128 != 128 {
@@ -447,7 +458,7 @@ fn emulate(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>, output_ports: &mu
         11 => out = &mut output_ports[3],
         _ => todo!(),
     }
-    println!("INPUTS ARE: {} AND {}!!!", inst[1], inst[2]);
+    println!("[INFO] Inputs are: {} and {}!!!", inst[1], inst[2]);
     let mut ignore_flags: bool = false;
     let mut shift_right: bool = false;
     if inst[0] & 32 == 32 {
@@ -490,33 +501,84 @@ fn emulate(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>, output_ports: &mu
                 *out = add_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
             }
 
-            15 => return true,
+            15 => return Ok(true),
             _ => todo!(),
         }
     }
+    
+    // Set clock to 01 after instruction execution
+    port_clk_file.seek(io::SeekFrom::Start(0))?;
+    port_clk_file.write_all(b"01")?;
+    port_clk_file.flush()?;
+
+    // Write output ports (seek to beginning to overwrite)
+    output_port_file.seek(io::SeekFrom::Start(0))?;
+    let formatted_output = format!("{:02x}{:02x}{:02x}{:02x}", output_ports[0], output_ports[1], output_ports[2], output_ports[3]);
+    output_port_file.write_all(formatted_output.as_bytes())?;
+    output_port_file.flush()?;
+
     if !branched {
     *pc += 4;
     }
     //dbg!(*pc);
-    false
+    Ok(false)
 }
+
+fn get_inputs<R>(reader: io::BufReader<R>) -> Vec<char> where R: std::io::Read {
+    let mut input: Vec<char> = Vec::new();
+
+    // Read byte by byte and convert to char
+    // NOTE: This only works for ASCII (0-127)
+    for byte_result in reader.bytes() {
+        match byte_result {
+            Ok(byte) => {
+                // Convert byte to char (ASCII only)
+                let c: char = byte as char;
+                input.push(c);
+                println!("[INFO] Read input: {c}");
+            }
+            Err(e) => {
+                eprintln!("[ERROR] Cant read input byte!!! \n{e}");
+                break;
+            }
+        }
+    }
+    input
+}
+
 
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
     
     if args.len() < 2 {
-        return Err(Error::new(io::ErrorKind::InvalidInput, "ERROR: Not enough arguments!"));
+        return Err(Error::new(io::ErrorKind::InvalidInput, "[ERROR] Not enough arguments!"));
     }
     
     let file: File = match File::open(&args[1]) {
         Ok(f) => f,
         Err(e) => {
-            eprintln!("Error opening file: {}", e);
+            eprintln!("[ERROR] Cant open input file!!! \n{}", e);
             return Err(e);
         }
     };
-   
+    
+    let mut output_port_file: File = match File::create("target/debug/ports/output_port.hex") {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("[ERROR] Cant create/open the output port file!!! \n{}", e);
+            return Err(e);
+        }
+    };
+
+    let mut port_clk_file: File = match File::create("target/debug/ports/clk.hex") {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("[ERROR] Cant create/open the port clock file!!! \n{}", e);
+            return Err(e);
+        }
+    };
+
     let program: Vec<char> = get_program(io::BufReader::new(file));
     
     let mut registers: Vec<u8> = vec![0; 5];
@@ -539,10 +601,14 @@ fn main() -> io::Result<()> {
     }
 
     loop {
-        if emulate(&mut registers, &mut input_ports, &mut output_ports, &mut ram, &mut stk, &mut inst, &mut pc, &mut sp, &mut zero_flag, &mut carry_flag) {
+        // Reopen input port file each cycle to get fresh data
+        let input_port_file = File::open("target/debug/ports/input_port.hex")?;
+        
+        if emulate(&mut registers, &mut input_ports, &mut output_ports, &mut ram, &mut stk, &mut inst, &mut pc, &mut sp, &mut zero_flag, &mut carry_flag, io::BufReader::new(input_port_file), &mut output_port_file, &mut port_clk_file)? {
             break;
         }
     }
-    println!("EXITED SUCCESSFULLY");
+
+    println!("[INFO] Exited successfully!");
     Ok(())
 }
