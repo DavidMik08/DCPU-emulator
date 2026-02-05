@@ -383,13 +383,15 @@ fn bnc(pc: &mut u32, carry_flag: &mut bool, addr: u32) -> bool {
 
 
 
-fn emulate<R: std::io::Read>(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>, output_ports: &mut Vec<u8>, ram: &mut Vec<u8>, stk: &mut Vec<u8>, inst: &mut Vec<u8>, pc: &mut u32, sp: &mut u8, zero_flag: &mut bool, carry_flag: &mut bool, input_reader: BufReader<R>, output_port_file: &mut File, port_clk_file: &mut File) -> io::Result<bool> {
+fn emulate<R: std::io::Read>(count: u8, registers: &mut Vec<u8>, input_ports: &mut Vec<u8>, output_ports: &mut Vec<u8>, ram: &mut Vec<u8>, inst: &mut Vec<u8>, pc: &mut u32, zero_flag: &mut bool, carry_flag: &mut bool, input_reader: BufReader<R>, output_port_file: &mut File, port_clk_file: &mut File) -> io::Result<bool> {
     println!("");
     // Set clock to 00 at start of instruction
     port_clk_file.seek(io::SeekFrom::Start(0))?;
     port_clk_file.write_all(b"00")?;
     port_clk_file.flush()?;
-
+    if count > 25 {
+        return Ok(true);
+    }
     *inst = get_inst(&mut *pc, &mut *ram);
     
     let input_port_data: Vec<char> = get_inputs(input_reader);
@@ -402,6 +404,8 @@ fn emulate<R: std::io::Read>(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>,
         println!("[INFO] {}", inst[i]);
     }
     let addr: u32 = (registers[2] as u32) + (registers[3] as u32) * 256 + (registers[4] as u32) * 65536;
+    let mut sp: u32 = (registers[5] as u32) + (registers[6] as u32) * 256 + (registers[7] as u32) * 65536;
+
     if inst[0] & 128 != 128 {
         match inst[1] {
             0 => inst[1] = 0,
@@ -410,13 +414,22 @@ fn emulate<R: std::io::Read>(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>,
             3 => inst[1] = registers[2],
             4 => inst[1] = registers[3],
             5 => inst[1] = registers[4],
+            6 => inst[1] = registers[5],
+            7 => inst[1] = registers[6],
+            8 => inst[1] = registers[7],
 
-            6 => inst[1] = ram[addr as usize],
-            7 => inst[1] = stk[{let tmp = *sp; *sp -= 1; tmp as usize}],
-            8 => inst[1] = input_ports[0],
-            9 => inst[1] = input_ports[1],
-            10 => inst[1] = input_ports[2],
-            11 => inst[1] = input_ports[3],
+
+            9 => inst[1] = ram[addr as usize],
+            10 => {
+                inst[1] = ram[{let tmp = sp; sp -= 1; tmp as usize}];
+                registers[5] = (sp & 0xFF)               as u8;
+                registers[6] = ((sp & 0xFF00)   >> 0x8)  as u8;
+                registers[7] = ((sp & 0xFF0000) >> 0x10) as u8;
+            }
+            11 => inst[1] = input_ports[0],
+            12 => inst[1] = input_ports[1],
+            13 => inst[1] = input_ports[2],
+            14 => inst[1] = input_ports[3],
             _ => todo!(),
         }
     }
@@ -428,13 +441,22 @@ fn emulate<R: std::io::Read>(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>,
             3 => inst[2] = registers[2],
             4 => inst[2] = registers[3],
             5 => inst[2] = registers[4],
+            6 => inst[2] = registers[5],
+            7 => inst[2] = registers[6],
+            8 => inst[2] = registers[7],
 
-            6 => inst[2] = ram[addr as usize],
-            7 => inst[2] = stk[{let tmp = *sp; *sp -= 1; tmp as usize}],
-            8 => inst[2] = input_ports[0],
-            9 => inst[2] = input_ports[1],
-            10 => inst[2] = input_ports[2],
-            11 => inst[2] = input_ports[3],
+            9 => inst[2] = ram[addr as usize],
+            10 => {
+                inst[2] = ram[{let tmp = sp; sp -= 1; tmp as usize}];
+                registers[5] = (sp & 0xFF)               as u8;
+                registers[6] = ((sp & 0xFF00)   >> 0x8)  as u8;
+                registers[7] = ((sp & 0xFF0000) >> 0x10) as u8;
+            }
+,
+            11 => inst[2] = input_ports[0],
+            12 => inst[2] = input_ports[1],
+            13 => inst[2] = input_ports[2],
+            14 => inst[2] = input_ports[3],
             _ => todo!(),
         }
     }
@@ -449,13 +471,21 @@ fn emulate<R: std::io::Read>(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>,
         3 => out = &mut registers[2],
         4 => out = &mut registers[3],
         5 => out = &mut registers[4],
+        6 => out = &mut registers[5],
+        7 => out = &mut registers[6],
+        8 => out = &mut registers[7],
 
-        6 => out = &mut ram[addr as usize],
-        7 => out = &mut stk[{*sp += 1; *sp as usize}],
-        8 => out = &mut output_ports[0],
-        9 => out = &mut output_ports[1],
-        10 => out = &mut output_ports[2],
-        11 => out = &mut output_ports[3],
+        9 => out = &mut ram[addr as usize],
+        10 => {
+            out = &mut ram[{sp += 1; sp as usize}];
+            registers[5] = (sp & 0xFF)               as u8;
+            registers[6] = ((sp & 0xFF00)   >> 0x8)  as u8;
+            registers[7] = ((sp & 0xFF0000) >> 0x10) as u8;
+        },
+        11 => out = &mut output_ports[0],
+        12 => out = &mut output_ports[1],
+        13 => out = &mut output_ports[2],
+        14 => out = &mut output_ports[3],
         _ => todo!(),
     }
     println!("[INFO] Inputs are: {} and {}!!!", inst[1], inst[2]);
@@ -482,7 +512,8 @@ fn emulate<R: std::io::Read>(registers: &mut Vec<u8>, input_ports: &mut Vec<u8>,
             9  => *out = nimpl_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag),
             10 => {
                 branched = true;
-                *out = and_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
+                *pc = addr;
+                *out = add_inst(inst[1], inst[2], &mut ignore_flags, &mut shift_right, carry_flag, zero_flag);
             }
             11 => {
                 branched = biz(pc, zero_flag, addr);
@@ -581,14 +612,12 @@ fn main() -> io::Result<()> {
 
     let program: Vec<char> = get_program(io::BufReader::new(file));
     
-    let mut registers: Vec<u8> = vec![0; 5];
+    let mut registers: Vec<u8> = vec![0; 8];
     let mut input_ports: Vec<u8> = vec![0; 4];
     let mut output_ports: Vec<u8> = vec![0; 4];
     let mut ram: Vec<u8> = vec![0; 16777216];
-    let mut stk: Vec<u8> = vec![0; 256];
     let mut inst: Vec<u8> = vec![0; 4];
     let mut pc: u32 = 0;
-    let mut sp: u8 = 0;
     let mut zero_flag: bool = false;
     let mut carry_flag: bool = false;
 
@@ -599,14 +628,15 @@ fn main() -> io::Result<()> {
         let second_char = program[i as usize];
         ram[(i/2 - 3) as usize] = hex_to_dec(first_char, second_char);
     }
-
+    let mut count: u8 = 0;
     loop {
         // Reopen input port file each cycle to get fresh data
         let input_port_file = File::open("target/debug/ports/input_port.hex")?;
         
-        if emulate(&mut registers, &mut input_ports, &mut output_ports, &mut ram, &mut stk, &mut inst, &mut pc, &mut sp, &mut zero_flag, &mut carry_flag, io::BufReader::new(input_port_file), &mut output_port_file, &mut port_clk_file)? {
+        if emulate(count, &mut registers, &mut input_ports, &mut output_ports, &mut ram, &mut inst, &mut pc, &mut zero_flag, &mut carry_flag, io::BufReader::new(input_port_file), &mut output_port_file, &mut port_clk_file)? {
             break;
         }
+        count += 1;
     }
 
     println!("[INFO] Exited successfully!");
