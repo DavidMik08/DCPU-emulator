@@ -421,11 +421,11 @@ fn emulate<R: std::io::Read>(count: u8, registers: &mut Vec<u8>, input_ports: &m
 
             9 => inst[1] = ram[addr as usize],
             10 => {
-                inst[1] = ram[{let tmp = sp; sp -= 1; tmp as usize}];
+                inst[1] = ram[{sp += 1; sp as usize}];
                 registers[5] = (sp & 0xFF)               as u8;
                 registers[6] = ((sp & 0xFF00)   >> 0x8)  as u8;
                 registers[7] = ((sp & 0xFF0000) >> 0x10) as u8;
-            }
+            },
             11 => inst[1] = input_ports[0],
             12 => inst[1] = input_ports[1],
             13 => inst[1] = input_ports[2],
@@ -447,12 +447,12 @@ fn emulate<R: std::io::Read>(count: u8, registers: &mut Vec<u8>, input_ports: &m
 
             9 => inst[2] = ram[addr as usize],
             10 => {
-                inst[2] = ram[{let tmp = sp; sp -= 1; tmp as usize}];
+                inst[2] = ram[{sp += 1; sp as usize}];
                 registers[5] = (sp & 0xFF)               as u8;
                 registers[6] = ((sp & 0xFF00)   >> 0x8)  as u8;
                 registers[7] = ((sp & 0xFF0000) >> 0x10) as u8;
-            }
-,
+            },
+
             11 => inst[2] = input_ports[0],
             12 => inst[2] = input_ports[1],
             13 => inst[2] = input_ports[2],
@@ -477,7 +477,7 @@ fn emulate<R: std::io::Read>(count: u8, registers: &mut Vec<u8>, input_ports: &m
 
         9 => out = &mut ram[addr as usize],
         10 => {
-            out = &mut ram[{sp += 1; sp as usize}];
+            out = &mut ram[{let tmp = sp; sp -= 1; tmp as usize}];
             registers[5] = (sp & 0xFF)               as u8;
             registers[6] = ((sp & 0xFF00)   >> 0x8)  as u8;
             registers[7] = ((sp & 0xFF0000) >> 0x10) as u8;
