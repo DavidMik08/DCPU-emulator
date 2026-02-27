@@ -660,7 +660,12 @@ fn main() -> io::Result<()> {
             eprintln!("[ERROR] Cant create/open the port clock file!!! \n{}", e);
             return Err(e);
         }
-};
+    };
+
+    // Create interupt.hex with default "00" if it doesn't exist
+    let mut interupt_create_file = File::create("target/debug/ports/interupt.hex")?;
+    interupt_create_file.write_all(b"00")?;
+    interupt_create_file.flush()?;
 
     let program: Vec<char> = get_program(io::BufReader::new(file));
     
